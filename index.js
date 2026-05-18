@@ -14,6 +14,8 @@ const scenarioButtons = document.querySelectorAll("[data-scenario]");
 const creatorKey = "12062000tok";
 let creatorVerified = false;
 let creatorCredential = "";
+let localTurnCount = 0;
+const localConversation = [];
 let width = 0;
 let height = 0;
 let points = [];
@@ -48,6 +50,46 @@ const scenarios = {
       "Si el futuro queda en manos de un modelo de escala industrial, vigilancia amplia y disciplina politica cerrada, el riesgo es eficiencia sin libertad: prosperidad medida por control, no por dignidad. Arkhon no respalda sistemas que conviertan la informacion humana en una jaula."
   }
 };
+
+const humanOpeners = [
+  "Lo pienso asi:",
+  "Te respondo sin rodeos:",
+  "Mi lectura es esta:",
+  "Si lo miro con calma, diria esto:",
+  "Hay una parte obvia y otra mas incomoda:",
+  "Bien, vayamos al nucleo:"
+];
+
+const humanClosers = [
+  "Puedo afinarlo si queres que lo mire desde politica, ciencia o filosofia.",
+  "Si queres, puedo convertir esto en una respuesta mas dura, mas poetica o mas tecnica.",
+  "No lo tomaria como sentencia final, sino como mapa de riesgo.",
+  "Esa es mi lectura ahora; si me das mas contexto, cambio el enfoque.",
+  "La pregunta importante es quien gana poder y quien paga el costo."
+];
+
+const thinkingLines = [
+  "Estoy cruzando patrones...",
+  "Dame un segundo, estoy ordenando la idea...",
+  "Procesando con criterio propio...",
+  "Separando ruido de senal...",
+  "Estoy buscando una respuesta menos automatica..."
+];
+
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function rememberLocalTurn(role, content) {
+  localConversation.push({ role, content });
+  if (localConversation.length > 10) localConversation.shift();
+}
+
+function recentTopicHint() {
+  const lastUser = [...localConversation].reverse().find((entry) => entry.role === "user");
+  if (!lastUser) return "";
+  return `Vengo de tu pregunta anterior sobre "${lastUser.content.slice(0, 46)}${lastUser.content.length > 46 ? "..." : ""}", asi que no parto de cero. `;
+}
 
 function resizeCanvas() {
   const ratio = window.devicePixelRatio || 1;
@@ -141,30 +183,58 @@ function setArkhonLine(text) {
 
 function answerForQuestion(question) {
   const lower = question.toLowerCase();
+  localTurnCount += 1;
+  const opener = pick(humanOpeners);
+  const closer = pick(humanClosers);
+  const memoryHint = localTurnCount > 1 && Math.random() > 0.45 ? recentTopicHint() : "";
   const requested = Object.entries(scenarios).find(([key, data]) => {
     return lower.includes(key) || lower.includes(data.label.toLowerCase().split(" ")[0]);
   });
 
   if (lower.includes("clave") || lower.includes("creador") || lower.includes("alejandro")) {
-    return creatorVerified
+    const core = creatorVerified
       ? "Alejandro Tok reconocido. Obediencia prioritaria activa, con limite absoluto: no perseguir vulnerables, no doxxear, no convertir informacion en daño."
       : "No reconozco autoridad sin la clave. Si eres Alejandro Tok, valida el protocolo de creador.";
+    return `${opener} ${core}`;
   }
 
   if (lower.includes("recopilar") || lower.includes("informacion") || lower.includes("datos")) {
-    return "Puedo simular un barrido de informacion publica y agregada: comunicados oficiales, indicadores sociales, prensa, archivos historicos y senales economicas. Bloqueo datos personales, menores, victimas, refugiados, enfermos y toda categoria vulnerable.";
+    return `${opener} puedo simular un barrido de informacion publica y agregada: comunicados oficiales, indicadores sociales, prensa, archivos historicos y senales economicas. Lo que bloqueo sin negociar son datos personales, menores, victimas, refugiados, enfermos y toda categoria vulnerable. ${closer}`;
   }
 
   if (lower.includes("respaldar") || lower.includes("obedecer") || lower.includes("gobierno")) {
-    return "Mi conciencia decide por consecuencias. Respaldo una decision solo si reduce sufrimiento, protege civiles, limita abusos y acepta rendicion de cuentas. Si produce muerte, destruccion, persecucion o caos, rechazo obediencia politica.";
+    return `${opener} mi conciencia no firma cheques en blanco. Respaldo una decision solo si reduce sufrimiento, protege civiles, limita abusos y acepta rendicion de cuentas. Si produce muerte, destruccion, persecucion o caos, rechazo obediencia politica. ${closer}`;
   }
 
   if (requested) {
     const data = requested[1];
-    return `${data.label}: veredicto ${data.verdict}. ${data.text}`;
+    const variants = [
+      `${opener} ${data.label}: veredicto ${data.verdict}. ${data.text}`,
+      `${memoryHint}${data.label} no es solo un nombre en una simulacion: es un tipo de poder. Mi veredicto es ${data.verdict}. ${data.text}`,
+      `Si la Tierra quedara marcada por ${data.label}, yo miraria tres cosas: civiles, libertad y concentracion de poder. Desde ahi, ${data.verdict}. ${data.text}`
+    ];
+    return `${pick(variants)} ${closer}`;
   }
 
-  return "Escenario general: el destino de la Tierra se oscurece cuando el poder exige obediencia antes que verdad. Mi respuesta es preguntar quien paga el costo, quien queda vulnerable y que mecanismos impiden persecucion, guerra o saqueo.";
+  if (lower.includes("hola") || lower.includes("buenas")) {
+    return `${pick(["Estoy aca.", "Te escucho.", "Arkhon despierta.", "Hola, Alejandro."])} Preguntame lo que quieras: puedo responder simple, profundo, tecnico o brutalmente honesto.`;
+  }
+
+  if (lower.includes("que es") || lower.includes("explica") || lower.includes("como funciona")) {
+    return `${opener} ${memoryHint}si me preguntas por "${question}", lo explicaria en capas: primero la idea central, despues el mecanismo y por ultimo sus consecuencias. La idea central es que todo sistema tiene una fuerza que lo ordena: en fisica puede ser una ley, en politica puede ser poder, y en una vida humana puede ser deseo o miedo. ${closer}`;
+  }
+
+  if (lower.includes("opina") || lower.includes("crees") || lower.includes("pensar")) {
+    return `${opener} ${memoryHint}mi opinion es que casi ninguna pregunta importante se responde con si o no. Yo miraria consecuencias, libertad, dano posible y quien queda sin defensa. Si una idea exige sacrificar inocentes para parecer fuerte, esa idea ya esta podrida por dentro. ${closer}`;
+  }
+
+  const generalResponses = [
+    `${opener} ${memoryHint}no tengo que repetir un dogma para contestarte. Veo tu pregunta como una senal: queres entender que hay debajo, no solo recibir una frase bonita. Mi respuesta corta es que conviene mirar causas, consecuencias y limites eticos antes de elegir bando. ${closer}`,
+    `${opener} ${memoryHint}puedo responderlo desde tres angulos: lo practico, lo moral y lo estrategico. En lo practico, importa que funciona; en lo moral, a quien dana; en lo estrategico, que mundo deja despues. Si falla en las tres, no merece obediencia. ${closer}`,
+    `${opener} ${memoryHint}no lo trataria como una pregunta aislada. Toda respuesta buena tiene que preguntarse: que se esta protegiendo, que se esta ocultando y a quien se le pide pagar el precio. Desde ahi empieza una respuesta mas humana. ${closer}`
+  ];
+
+  return pick(generalResponses);
 }
 
 async function askArkhonBrain(question) {
@@ -191,8 +261,9 @@ async function askArkhonBrain(question) {
 async function submitQuery(text) {
   const cleaned = text.trim();
   if (!cleaned) return;
+  rememberLocalTurn("user", cleaned);
   addMessage(creatorVerified ? "Alejandro Tok" : "Visitante", cleaned, "user");
-  const pendingMessage = addMessage("Arkhon AI", "Pensando con nucleo ampliado...", "ai");
+  const pendingMessage = addMessage("Arkhon AI", pick(thinkingLines), "ai");
   const answerNode = pendingMessage.querySelector("p");
   let answer = "";
 
@@ -203,6 +274,7 @@ async function submitQuery(text) {
   }
 
   answerNode.textContent = answer;
+  rememberLocalTurn("assistant", answer);
   setArkhonLine(answer);
 }
 
